@@ -25,6 +25,7 @@ install:
 	@hash govendor > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
 		go get -u github.com/kardianos/govendor; \
 	fi
+	@if [ -f ~/.bash_profile ]; then source ~/.bash_profile; fi
 	govendor sync
 
 vet:
@@ -44,6 +45,7 @@ fmt-check:
 	fi;
 
 $(CMD):
+	go get ./modules/$@
 	go build -o bin/$@/falcon-$@ ./modules/$@
 
 .PHONY: $(TARGET)
@@ -78,3 +80,13 @@ clean:
 	@rm -rf open-falcon-v$(VERSION).tar.gz
 
 .PHONY: clean all agent aggregator graph hbs judge nodata transfer gateway api alarm
+
+PKGNAME = 'falcon-plus'
+rpm:
+	@rm -rf /tmp/${PKGNAME}/
+	@mkdir /tmp/${PKGNAME}
+	@cp -pr * /tmp/${PKGNAME}
+	@(rpmdev-setuptree || test -e ~/rpmbuild/SOURCES || mkdir ~/rpmbuild/SOURCES/)
+	@(pushd /tmp/; tar czf ${PKGNAME}-wdconfig.tgz ${PKGNAME}/wdconfig && mv -v ${PKGNAME}-wdconfig.tgz ~/rpmbuild/SOURCES/; rm -rf ${PKGNAME}/wdconfig; popd)
+	@(pushd /tmp/; tar czf ${PKGNAME}-$(VERSION).tgz ${PKGNAME}; mv -v ${PKGNAME}-$(VERSION).tgz ~/rpmbuild/SOURCES/; popd)
+	@rpmbuild -ba ${PKGNAME}.spec

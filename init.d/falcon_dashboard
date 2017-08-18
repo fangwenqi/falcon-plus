@@ -1,0 +1,150 @@
+#!/bin/sh
+#
+# falcon-dashboard        init file for starting up the falcon-dashboard
+#
+# chkconfig: - 90 10
+# processname: falcon-dashboard
+# config: 
+# pidfile:
+# description: Starts and stops the falcon-dashboard
+#
+### BEGIN INIT INFO
+# Provides: falcon-dashboard
+# Required-Start: $local_fs $network
+# Required-Stop: $local_fs $network
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: start and stop falcon-dashboard
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+. /lib/lsb/init-functions
+
+
+# For SELinux we need to use 'runuser' not 'su'
+if [ -x "/sbin/runuser" ]; then
+    SU="/sbin/runuser -s /bin/sh"
+else
+    SU="su -s /bin/sh"
+fi
+
+FALCON_PATH=/data/falcon
+prog='control'
+falcon_user='falcon'
+falcon_mod='falcon-dashboard'
+falcon_mod_short='dashboard'
+RETVAL=0
+
+isrunning() {
+    output=`$SU $falcon_user -c "cd ${FALCON_PATH}/${falcon_mod_short}; ./$prog status"`
+    up=`echo $output | grep ${falcon_mod} | grep 'running' | wc -l`
+
+    if [ "$up" == "0" ]; then
+        return 1
+    else 
+        return 0
+    fi
+}
+
+start() {
+    isrunning
+    if [ "$?" -eq "0" ]; then
+        echo "${falcon_mod} already running"
+        return 0
+    fi
+
+    $SU $falcon_user -c "cd ${FALCON_PATH}/${falcon_mod_short}; ./$prog start"
+
+    sleep 1
+    isrunning
+    if [ "$?" -eq "0" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+restart() {
+    $SU $falcon_user -c "cd ${FALCON_PATH}/${falcon_mod_short}; ./$prog restart"
+
+    sleep 1
+    isrunning
+    if [ "$?" -eq "0" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+stop() {
+    isrunning
+    if [ "$?" != "0" ]; then
+        echo "${falcon_mod} already stopped"
+        return 0
+    fi
+
+    $SU $falcon_user -c "cd ${FALCON_PATH}/${falcon_mod_short}; ./$prog stop"
+
+    sleep 1
+    isrunning
+    if [ "$?" -eq "0" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+case "$1" in
+    start)
+        start
+        RETVAL=$?
+
+        if [ "$RETVAL" = 0 ]; then
+            log_success_msg "Started ${falcon_mod}"
+        else
+            log_failure_msg "Not able to start ${falcon_mod}"
+        fi
+        ;;
+
+    restart)
+        restart
+        RETVAL=$?
+
+        if [ "$RETVAL" = 0 ]; then
+            log_success_msg "Restarted ${falcon_mod}"
+        else
+            log_failure_msg "Not able to restart ${falcon_mod}"
+        fi
+        ;;
+
+    stop)
+        stop
+        RETVAL=$?
+
+        if [ "$RETVAL" == 0 ]; then
+            log_success_msg "Stopped ${falcon_mod}"
+        else
+            log_failure_msg "Not able to stop"
+        fi
+        ;;
+
+    status)
+        isrunning
+        RETVAL=$?
+
+        if [ "$RETVAL" == 0 ]; then
+            echo "${falcon_mod} is running"
+        else
+            echo "${falcon_mod} is stopped"
+            RETVAL=3
+        fi
+    ;;
+
+    *)
+        echo "Usage: $0 {start|stop|status|restart}."
+    ;;
+
+esac
+
+exit $RETVAL
